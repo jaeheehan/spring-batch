@@ -40,6 +40,7 @@ public class JobLauncherConfiguration {
         return stepBuilderFactory.get("step2")
                 .tasklet((contribution, chunkContext) -> {
                     System.out.println("step2 was excuted");
+                    Thread.sleep(3000);
                     return RepeatStatus.FINISHED;
                 })
                 .build();

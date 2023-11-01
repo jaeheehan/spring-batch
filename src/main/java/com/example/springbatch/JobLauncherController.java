@@ -33,9 +33,9 @@ public class JobLauncherController {
                 .addDate("date", new Date())
                 .toJobParameters();
 
-        SimpleJobLauncher jobLauncher1 = (SimpleJobLauncher) basicBatchConfigurer.getJobLauncher();
-        jobLauncher1.setTaskExecutor(new SimpleAsyncTaskExecutor());
-        jobLauncher1.run(job, jobParameters);
+        //SimpleJobLauncher jobLauncher1 = (SimpleJobLauncher) basicBatchConfigurer.getJobLauncher();
+        //jobLauncher1.setTaskExecutor(new SimpleAsyncTaskExecutor());
+        jobLauncher.run(job, jobParameters);
 
         return "batch completed";
     }
