@@ -11,35 +11,35 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @RequiredArgsConstructor
-public class SampleJobConfiguration {
+public class SampleJobConfiguration2 {
 
 
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
 
     @Bean
-    public Job job(){
-        return jobBuilderFactory.get("batchJob1")
-                .start(step1())
-                .next(step2())
+    public Job job2(){
+        return jobBuilderFactory.get("batchJob2")
+                .start(step3())
+                .next(step4())
                 .build();
     }
 
     @Bean
-    public Step step1() {
-        return stepBuilderFactory.get("step1")
+    public Step step3() {
+        return stepBuilderFactory.get("step3")
                 .tasklet((contribution, chunkContext) -> {
-                    System.out.println("step1 was excuted");
+                    System.out.println("step3 was excuted");
                     return RepeatStatus.FINISHED;
                 })
                 .build();
     }
 
     @Bean
-    public Step step2() {
-        return stepBuilderFactory.get("step2")
+    public Step step4() {
+        return stepBuilderFactory.get("step4")
                 .tasklet((contribution, chunkContext) -> {
-                    System.out.println("step2 was excuted");
+                    System.out.println("step4 was excuted");
                     return RepeatStatus.FINISHED;
                 })
                 .build();
