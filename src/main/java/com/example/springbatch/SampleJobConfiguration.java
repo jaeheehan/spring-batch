@@ -37,6 +37,7 @@ public class SampleJobConfiguration {
                     System.out.println("step1 has executed");
                     return RepeatStatus.FINISHED;
                 })
+                .allowStartIfComplete(true)
                 .build();
     }
     @Bean
@@ -44,8 +45,10 @@ public class SampleJobConfiguration {
         return stepBuilderFactory.get("step2")
                 .tasklet((contribution, chunkContext) -> {
                     System.out.println("step2 has executed");
-                    return RepeatStatus.FINISHED;
+                    throw new RuntimeException("step2 has failed");
+                    //return RepeatStatus.FINISHED;
                 })
+                .startLimit(3)
                 .build();
     }
 }
