@@ -42,10 +42,7 @@ public class SampleJobConfiguration {
     @Bean
     public Step step2() {
         return stepBuilderFactory.get("step2")
-                .tasklet((contribution, chunkContext) -> {
-                    System.out.println("step2 has executed");
-                    return RepeatStatus.FINISHED;
-                })
+                .tasklet(new CustomeTasklet())
                 .build();
     }
 }
