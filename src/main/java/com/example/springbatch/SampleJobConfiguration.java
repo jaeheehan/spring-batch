@@ -26,7 +26,10 @@ public class SampleJobConfiguration {
         return this.jobBuilderFactory.get("Job")
                 .incrementer(new RunIdIncrementer())
                 .start(step1())
-                .next(step2())
+                .on("COMPLETED").to(step3())
+                .from(step1())
+                .on("FAILED").to(step2())
+                .end()
                 .build();
     }
 
@@ -35,7 +38,8 @@ public class SampleJobConfiguration {
         return stepBuilderFactory.get("step1")
                 .tasklet((contribution, chunkContext) -> {
                     System.out.println("step1 has executed");
-                    return RepeatStatus.FINISHED;
+                    throw new RuntimeException("step1 failed");
+                   // return RepeatStatus.FINISHED;
                 })
                 .build();
     }
@@ -44,6 +48,16 @@ public class SampleJobConfiguration {
         return stepBuilderFactory.get("step2")
                 .tasklet((contribution, chunkContext) -> {
                     System.out.println("step2 has executed");
+                    return RepeatStatus.FINISHED;
+                })
+                .build();
+    }
+
+    @Bean
+    public Step step3() {
+        return stepBuilderFactory.get("step3")
+                .tasklet((contribution, chunkContext) -> {
+                    System.out.println("step3 has executed");
                     return RepeatStatus.FINISHED;
                 })
                 .build();
