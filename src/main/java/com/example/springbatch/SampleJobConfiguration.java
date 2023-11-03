@@ -6,6 +6,8 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.builder.FlowBuilder;
+import org.springframework.batch.core.job.flow.Flow;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
@@ -25,9 +27,22 @@ public class SampleJobConfiguration {
     public Job BatchJob() {
         return this.jobBuilderFactory.get("Job")
                 .incrementer(new RunIdIncrementer())
-                .start(step1())
+                .start(flowStep())
                 .next(step2())
                 .build();
+    }
+
+    private Step flowStep() {
+        return stepBuilderFactory.get("flowStep")
+                .flow(flow())
+                .build();
+    }
+
+    private Flow flow() {
+        FlowBuilder<Flow> flowBuilder = new FlowBuilder<>("flow");
+        flowBuilder.start(step1()).end();
+
+        return  flowBuilder.build();
     }
 
     @Bean
