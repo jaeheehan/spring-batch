@@ -1,6 +1,7 @@
 package com.example.springbatch;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepContribution;
@@ -24,9 +25,10 @@ public class SampleJobConfiguration {
     @Bean
     public Job BatchJob() {
         return this.jobBuilderFactory.get("Job")
-                .incrementer(new RunIdIncrementer())
                 .start(step1())
-                .next(step2())
+                .on("FAILED").to(step2())
+                .on("PASS").stop()
+                .end()
                 .build();
     }
 
@@ -35,6 +37,7 @@ public class SampleJobConfiguration {
         return stepBuilderFactory.get("step1")
                 .tasklet((contribution, chunkContext) -> {
                     System.out.println("step1 has executed");
+                    contribution.getStepExecution().setExitStatus(ExitStatus.FAILED);
                     return RepeatStatus.FINISHED;
                 })
                 .build();
@@ -46,6 +49,7 @@ public class SampleJobConfiguration {
                     System.out.println("step2 has executed");
                     return RepeatStatus.FINISHED;
                 })
+                .listener(new PassCheckingListener())
                 .build();
     }
 }
