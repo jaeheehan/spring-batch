@@ -6,6 +6,7 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.flow.JobExecutionDecider;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
@@ -25,25 +26,44 @@ public class SampleJobConfiguration {
     public Job BatchJob() {
         return this.jobBuilderFactory.get("Job")
                 .incrementer(new RunIdIncrementer())
-                .start(step1())
-                .next(step2())
+                .start(step())
+                .next(decider())
+                .from(decider()).on("ODD").to(odd())
+                .from(decider()).on("EVEN").to(even())
+                .end()
                 .build();
     }
 
+
     @Bean
-    public Step step1() {
-        return stepBuilderFactory.get("step1")
+    public JobExecutionDecider decider() {
+        return new CustomDecider();
+    }
+
+    @Bean
+    public Step step() {
+        return stepBuilderFactory.get("startStep")
                 .tasklet((contribution, chunkContext) -> {
-                    System.out.println("step1 has executed");
+                    System.out.println("this is the start tasklet");
                     return RepeatStatus.FINISHED;
                 })
                 .build();
     }
     @Bean
-    public Step step2() {
-        return stepBuilderFactory.get("step2")
+    public Step even() {
+        return stepBuilderFactory.get("even")
                 .tasklet((contribution, chunkContext) -> {
-                    System.out.println("step2 has executed");
+                    System.out.println("even has executed");
+                    return RepeatStatus.FINISHED;
+                })
+                .build();
+    }
+
+    @Bean
+    public Step odd() {
+        return stepBuilderFactory.get("odd")
+                .tasklet((contribution, chunkContext) -> {
+                    System.out.println("odd has executed");
                     return RepeatStatus.FINISHED;
                 })
                 .build();
