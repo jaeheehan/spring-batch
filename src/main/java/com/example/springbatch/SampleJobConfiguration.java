@@ -9,9 +9,22 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.item.ItemReader;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.JpaCursorItemReader;
+import org.springframework.batch.item.database.Order;
+import org.springframework.batch.item.database.PagingQueryProvider;
+import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
+import org.springframework.batch.item.database.builder.JpaCursorItemReaderBuilder;
+import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+
+import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 @RequiredArgsConstructor
@@ -20,32 +33,71 @@ public class SampleJobConfiguration {
 
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
+    private final DataSource dataSource;
 
     @Bean
-    public Job BatchJob() {
+    public Job BatchJob() throws Exception {
         return this.jobBuilderFactory.get("Job")
-                //.incrementer(new RunIdIncrementer())
+                .incrementer(new RunIdIncrementer())
                 .start(step1())
-                .next(step2())
                 .build();
     }
 
     @Bean
-    public Step step1() {
+    public Step step1() throws Exception {
         return stepBuilderFactory.get("step1")
-                .tasklet((contribution, chunkContext) -> {
-                    System.out.println("step1 has executed");
-                    return RepeatStatus.FINISHED;
-                })
+                .<Customer, Customer>chunk(2)
+                .reader(customItemReader())
+                .writer(customItemWriter())
                 .build();
     }
+
+
     @Bean
-    public Step step2() {
-        return stepBuilderFactory.get("step2")
-                .tasklet((contribution, chunkContext) -> {
-                    System.out.println("step2 has executed");
-                    return RepeatStatus.FINISHED;
-                })
-                .build();
+    public ItemReader<Customer> customItemReader() throws Exception {
+
+        Map<String, Object> parameterValues = new HashMap<>();
+        parameterValues.put("firstName", "A%");
+
+       return new JdbcPagingItemReaderBuilder<Customer>()
+               .name("jdbcPaingReader")
+               .pageSize(10)
+               .dataSource(dataSource)
+               .rowMapper(new BeanPropertyRowMapper<>(Customer.class))
+               .queryProvider(createQueryProvider())
+               .parameterValues(parameterValues)
+               .build();
+
+    }
+
+    @Bean
+    public PagingQueryProvider createQueryProvider() throws Exception {
+
+
+
+
+        SqlPagingQueryProviderFactoryBean queryProvier = new SqlPagingQueryProviderFactoryBean();
+        queryProvier.setDataSource(dataSource);
+        queryProvier.setSelectClause("id, firstName, lastName, birthdate");
+        queryProvier.setFromClause("from customer");
+        queryProvier.setWhereClause("where firstName like :firstName");
+
+        Map<String, Order> sortKeys = new HashMap<>();
+        sortKeys.put("id", Order.ASCENDING);
+
+        queryProvier.setSortKeys(sortKeys);
+
+        return queryProvier.getObject();
+
+    }
+
+
+    @Bean
+    public ItemWriter<Customer> customItemWriter() {
+        return items -> {
+            for (Customer item : items) {
+                System.out.println(item.toString());
+            }
+        };
     }
 }
