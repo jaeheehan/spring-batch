@@ -9,9 +9,15 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.support.ListItemReader;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
@@ -33,9 +39,19 @@ public class SampleJobConfiguration {
     @Bean
     public Step step1() {
         return stepBuilderFactory.get("step1")
-                .tasklet((contribution, chunkContext) -> {
-                    System.out.println("step1 has executed");
-                    return RepeatStatus.FINISHED;
+                .<String, String>chunk(2)
+                .reader(new ListItemReader<>(Arrays.asList("item1", "item2", "item3", "item4", "item5", "item6")))
+                .processor(new ItemProcessor<String, String>() {
+                    @Override
+                    public String process(final String s) throws Exception {
+                        return "my" + s;
+                    }
+                })
+                .writer(new ItemWriter<String>() {
+                    @Override
+                    public void write(final List<? extends String> list) throws Exception {
+                        System.out.println("list = " + list);
+                    }
                 })
                 .build();
     }
