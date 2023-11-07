@@ -36,9 +36,11 @@ public class CustomitemStreamReader implements ItemStreamReader<String> {
     @Override
     public void open(final ExecutionContext executionContext) throws ItemStreamException {
         if(executionContext.containsKey("index")){
+            System.out.println("open1");
             this.index = executionContext.getInt("index");
             this.restart = true;
         }else{
+            System.out.println("open2");
             index = 0;
             executionContext.put("index", this.index);
         }

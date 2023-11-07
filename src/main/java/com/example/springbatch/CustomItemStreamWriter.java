@@ -26,6 +26,6 @@ public class CustomItemStreamWriter implements ItemStreamWriter<String> {
 
     @Override
     public void write(final List<? extends String> items) throws Exception {
-        System.out.println("write");
+        items.forEach(item -> System.out.println(item));
     }
 }
