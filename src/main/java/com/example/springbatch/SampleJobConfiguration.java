@@ -9,9 +9,14 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.item.ItemStream;
+import org.springframework.batch.item.ItemStreamWriter;
+import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.ArrayList;
 
 @Configuration
 @RequiredArgsConstructor
@@ -33,12 +38,30 @@ public class SampleJobConfiguration {
     @Bean
     public Step step1() {
         return stepBuilderFactory.get("step1")
-                .tasklet((contribution, chunkContext) -> {
-                    System.out.println("step1 has executed");
-                    return RepeatStatus.FINISHED;
-                })
+                .<String, String>chunk(5)
+                .reader(itemReader())
+                .writer(itemWriter())
                 .build();
     }
+
+    @Bean
+    public ItemStreamWriter<String> itemWriter() {
+        return new CustomItemStreamWriter();
+    }
+
+    @Bean
+    public CustomitemStreamReader itemReader() {
+        ArrayList<String> items = new ArrayList<>(10);
+
+        for(int i =0; i<=10; i++){
+            items.add(String.valueOf(i));
+        }
+
+
+        return new CustomitemStreamReader(items);
+    }
+
+
     @Bean
     public Step step2() {
         return stepBuilderFactory.get("step2")
