@@ -24,7 +24,7 @@ public class SampleJobConfiguration {
     @Bean
     public Job BatchJob() {
         return this.jobBuilderFactory.get("Job")
-                .incrementer(new RunIdIncrementer())
+                //.incrementer(new RunIdIncrementer())
                 .start(step1())
                 .next(step2())
                 .build();
