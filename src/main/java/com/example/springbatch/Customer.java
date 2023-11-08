@@ -1,15 +1,22 @@
 package com.example.springbatch;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.OneToOne;
+
+@Getter
+@Setter
+@Entity
 public class Customer {
+    @Id
+    @GeneratedValue
     private Long id;
-    private String firstName;
-    private String lastName;
-    private String birthdate;
+    private String username;
+    private String age;
+
+    @OneToOne(mappedBy = "customer")
+    private Address address;
 }
