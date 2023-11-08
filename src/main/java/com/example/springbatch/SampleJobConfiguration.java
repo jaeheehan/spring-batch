@@ -11,15 +11,23 @@ import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.JpaCursorItemReader;
 import org.springframework.batch.item.database.Order;
 import org.springframework.batch.item.database.PagingQueryProvider;
+import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.item.database.builder.JpaCursorItemReaderBuilder;
+import org.springframework.batch.item.database.support.MySqlPagingQueryProvider;
 import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
+import org.springframework.batch.item.json.JacksonJsonObjectMarshaller;
+import org.springframework.batch.item.json.JsonFileItemWriter;
+import org.springframework.batch.item.json.builder.JsonFileItemWriterBuilder;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 
 import javax.sql.DataSource;
@@ -54,50 +62,39 @@ public class SampleJobConfiguration {
 
 
     @Bean
-    public ItemReader<Customer> customItemReader() throws Exception {
+    public JdbcPagingItemReader<Customer> customItemReader() {
 
-        Map<String, Object> parameterValues = new HashMap<>();
-        parameterValues.put("firstName", "A%");
+        JdbcPagingItemReader<Customer> reader = new JdbcPagingItemReader<>();
 
-       return new JdbcPagingItemReaderBuilder<Customer>()
-               .name("jdbcPaingReader")
-               .pageSize(10)
-               .dataSource(dataSource)
-               .rowMapper(new BeanPropertyRowMapper<>(Customer.class))
-               .queryProvider(createQueryProvider())
-               .parameterValues(parameterValues)
-               .build();
+        reader.setDataSource(this.dataSource);
+        reader.setFetchSize(10);
+        reader.setRowMapper(new CustomerRowMapper());
 
-    }
+        MySqlPagingQueryProvider queryProvider = new MySqlPagingQueryProvider();
+        queryProvider.setSelectClause("id, firstName, lastName, birthdate");
+        queryProvider.setFromClause("from customer");
 
-    @Bean
-    public PagingQueryProvider createQueryProvider() throws Exception {
+        queryProvider.setWhereClause("where firstname like :firstname");
+        HashMap<String, Object> parameters = new HashMap<>();
+        parameters.put("firstname", "A%");
+        reader.setParameterValues(parameters);
 
-
-
-
-        SqlPagingQueryProviderFactoryBean queryProvier = new SqlPagingQueryProviderFactoryBean();
-        queryProvier.setDataSource(dataSource);
-        queryProvier.setSelectClause("id, firstName, lastName, birthdate");
-        queryProvier.setFromClause("from customer");
-        queryProvier.setWhereClause("where firstName like :firstName");
-
-        Map<String, Order> sortKeys = new HashMap<>();
+        Map<String, Order> sortKeys = new HashMap<>(1);
         sortKeys.put("id", Order.ASCENDING);
+        queryProvider.setSortKeys(sortKeys);
+        reader.setQueryProvider(queryProvider);
 
-        queryProvier.setSortKeys(sortKeys);
-
-        return queryProvier.getObject();
-
+        return reader;
     }
-
 
     @Bean
     public ItemWriter<Customer> customItemWriter() {
-        return items -> {
-            for (Customer item : items) {
-                System.out.println(item.toString());
-            }
-        };
+        return new JdbcBatchItemWriterBuilder<Customer>()
+                .dataSource(dataSource)
+                .sql("INSERT INTO customer2 VALUES (:id, :firstName, :lastName, :birthdate)")
+                .beanMapped()
+                .build();
     }
+
+
 }
