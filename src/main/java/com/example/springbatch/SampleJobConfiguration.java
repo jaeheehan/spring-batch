@@ -5,13 +5,15 @@ import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.NonTransientResourceException;
-import org.springframework.batch.item.ParseException;
-import org.springframework.batch.item.UnexpectedInputException;
+import org.springframework.batch.item.*;
 import org.springframework.batch.item.adapter.ItemWriterAdapter;
+import org.springframework.batch.item.support.CompositeItemProcessor;
+import org.springframework.batch.item.support.builder.CompositeItemProcessorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
@@ -41,23 +43,22 @@ public class SampleJobConfiguration {
                         return i > 10 ? null : "item" + i;
                     }
                 })
-                .writer(customItemWriter())
+                .processor(itemProcessor())
+                .writer(items -> System.out.println(items))
+                .build();
+    }
+
+    @Bean
+    public ItemProcessor<String, String> itemProcessor() {
+
+        List<ItemProcessor<String, String>> itemProcessors = new ArrayList<>();
+        itemProcessors.add(new CustomitemProcessor());
+        itemProcessors.add(new CustomitemProcessor2());
+
+        return new CompositeItemProcessorBuilder()
+                .delegates(itemProcessors)
                 .build();
     }
 
 
-
-    @Bean
-    public ItemWriterAdapter<String> customItemWriter() {
-
-        ItemWriterAdapter<String>  writer = new ItemWriterAdapter<>();
-        writer.setTargetObject(customService());
-        writer.setTargetMethod("joinCustomer");
-        return  writer;
-    }
-
-    @Bean
-    public CustomService customService() {
-        return new CustomService();
-    }
 }
