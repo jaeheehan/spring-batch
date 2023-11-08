@@ -5,13 +5,14 @@ import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.NonTransientResourceException;
-import org.springframework.batch.item.ParseException;
-import org.springframework.batch.item.UnexpectedInputException;
+import org.springframework.batch.item.*;
 import org.springframework.batch.item.adapter.ItemWriterAdapter;
+import org.springframework.batch.item.support.ClassifierCompositeItemProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 @RequiredArgsConstructor
@@ -32,32 +33,40 @@ public class SampleJobConfiguration {
     @Bean
     public Step step1() throws Exception {
         return stepBuilderFactory.get("step1")
-                .<String, String>chunk(10)
-                .reader(new ItemReader<String>() {
+                .<ProcessInfo, ProcessInfo>chunk(10)
+                .reader(new ItemReader<ProcessInfo>() {
                     int i = 0;
                     @Override
-                    public String read() throws Exception, UnexpectedInputException, ParseException, NonTransientResourceException {
+                    public ProcessInfo read() throws Exception, UnexpectedInputException, ParseException, NonTransientResourceException {
                         i++;
-                        return i > 10 ? null : "item" + i;
+                        ProcessInfo processInfo = ProcessInfo.builder().id(i).build();
+                        return i > 3 ? null : processInfo;
                     }
                 })
-                .writer(customItemWriter())
+                .processor(customItemProcessor())
+                .writer(items -> {
+                    for (ProcessInfo item : items) {
+                        System.out.println(item);
+                    }
+                })
                 .build();
     }
 
+    public ItemProcessor<ProcessInfo, ProcessInfo> customItemProcessor() {
 
+        ClassifierCompositeItemProcessor<ProcessInfo, ProcessInfo> processor = new ClassifierCompositeItemProcessor<>();
 
-    @Bean
-    public ItemWriterAdapter<String> customItemWriter() {
+        ProcessorClassfier<ProcessInfo, ItemProcessor<?, ? extends ProcessInfo>> classifier = new ProcessorClassfier();
+        Map<Integer, ItemProcessor<ProcessInfo, ProcessInfo>> processorMap = new HashMap<>();
+        processorMap.put(1, new CustomItemProcessor1());
+        processorMap.put(2, new CustomItemProcessor2());
+        processorMap.put(3, new CustomItemProcessor3());
 
-        ItemWriterAdapter<String>  writer = new ItemWriterAdapter<>();
-        writer.setTargetObject(customService());
-        writer.setTargetMethod("joinCustomer");
-        return  writer;
+        classifier.setProcessorMap(processorMap);
+        processor.setClassifier(classifier);
+
+        return processor;
     }
 
-    @Bean
-    public CustomService customService() {
-        return new CustomService();
-    }
+
 }
