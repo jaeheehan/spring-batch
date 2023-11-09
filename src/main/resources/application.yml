@@ -28,5 +28,6 @@ spring:
   batch:
     job:
       enabled: true
+      names: batchJob
     jdbc:
       initialize-schema: never
