@@ -17,6 +17,8 @@ import org.springframework.batch.item.database.support.MySqlPagingQueryProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
@@ -37,7 +39,6 @@ public class SampleJobConfiguration {
         return jobBuilderFactory.get("batchJob")
                 .incrementer(new RunIdIncrementer())
                 .start(step1())
-                //.start(asyncStep1())
                 .listener(new StopWatchJobListener())
                 .build();
     }
@@ -47,49 +48,25 @@ public class SampleJobConfiguration {
         return stepBuilderFactory.get("step1")
                 .<Customer, Customer>chunk(100)
                 .reader(pagingItemReader())
-                .processor(customItemProcessor())
+                .listener(new CustomItemReadListener())
+                .processor((ItemProcessor<Customer, Customer>) item -> item)
+                .listener(new CustomProcessListener())
                 .writer(customItemWriter())
+                .listener(new CustomWriteListener())
+                .taskExecutor(taskExecutor())
                 .build();
     }
 
     @Bean
-    public ItemProcessor<Customer, Customer> customItemProcessor() throws InterruptedException {
-        return item -> {
-            Thread.sleep(30);
-            return new Customer(item.getId(), item.getFirstName().toUpperCase(), item.getLastName().toUpperCase(), item.getBirthdate());
-        };
-    }
-
-    @Bean
-    public Step asyncStep1() throws Exception{
-        return stepBuilderFactory.get("asyncStep1")
-                .<Customer, Future<Customer>>chunk(100)
-                .reader(pagingItemReader())
-                .processor(asyncItemProcessor())
-                .writer(asyncItemWriter())
-                .build();
+    public TaskExecutor taskExecutor(){
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);
+        executor.setThreadNamePrefix("async-thread-");
+        return executor;
     }
 
 
-    @Bean
-    public AsyncItemProcessor<Customer, Customer> asyncItemProcessor() throws Exception{
-
-        AsyncItemProcessor<Customer, Customer> asyncItemProcessor = new AsyncItemProcessor<>();
-        asyncItemProcessor.setDelegate(customItemProcessor());
-        asyncItemProcessor.setTaskExecutor(new SimpleAsyncTaskExecutor());
-
-        return asyncItemProcessor;
-    }
-
-    @Bean
-    public AsyncItemWriter<Customer> asyncItemWriter() throws Exception{
-
-        AsyncItemWriter<Customer> asyncItemWriter = new AsyncItemWriter<>();
-        asyncItemWriter.setDelegate(customItemWriter());
-
-
-        return asyncItemWriter;
-    }
 
     @Bean
     public JdbcPagingItemReader<Customer> pagingItemReader() {
