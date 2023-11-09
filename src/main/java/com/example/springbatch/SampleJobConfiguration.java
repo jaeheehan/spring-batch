@@ -21,6 +21,7 @@ import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 @Configuration
 @RequiredArgsConstructor
@@ -44,7 +45,7 @@ public class SampleJobConfiguration {
     @Bean
     public Step step1() throws Exception {
         return stepBuilderFactory.get("step1")
-                .<Customer, Customer>chunk(10)
+                .<Customer, Customer>chunk(100)
                 .reader(pagingItemReader())
                 .processor(customItemProcessor())
                 .writer(customItemWriter())
@@ -66,7 +67,7 @@ public class SampleJobConfiguration {
     @Bean
     public Step asyncStep1() throws Exception{
         return stepBuilderFactory.get("asyncStep1")
-                .<Customer, Customer>chunk(100)
+                .<Customer, Future<Customer>>chunk(100)
                 .reader(pagingItemReader())
                 .processor(asyncItemProcessor())
                 .writer(asyncItemWriter())
@@ -75,7 +76,7 @@ public class SampleJobConfiguration {
 
 
     @Bean
-    public AsyncItemProcessor asyncItemProcessor() throws Exception{
+    public AsyncItemProcessor<Customer, Customer> asyncItemProcessor() throws Exception{
 
         AsyncItemProcessor<Customer, Customer> asyncItemProcessor = new AsyncItemProcessor<>();
         asyncItemProcessor.setDelegate(customItemProcessor());
