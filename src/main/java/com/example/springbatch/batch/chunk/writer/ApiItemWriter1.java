@@ -3,10 +3,13 @@ package com.example.springbatch.batch.chunk.writer;
 import com.example.springbatch.batch.domain.ApiRequestVO;
 import com.example.springbatch.batch.domain.ApiResponseVO;
 import com.example.springbatch.service.AbstractApiService;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.file.FlatFileItemWriter;
+import org.springframework.batch.item.file.transform.DelimitedLineAggregator;
+import org.springframework.core.io.FileSystemResource;
 
-public class ApiItemWriter1 implements ItemWriter<ApiRequestVO> {
+public class ApiItemWriter1 extends FlatFileItemWriter<ApiRequestVO> {
 
     private final AbstractApiService apiService;
 
@@ -18,5 +21,19 @@ public class ApiItemWriter1 implements ItemWriter<ApiRequestVO> {
     public void write(final java.util.List<? extends ApiRequestVO> items) throws Exception {
         ApiResponseVO service = apiService.service(items);
         System.out.println("ApiResponseVO = " + service);
+
+        for (final ApiRequestVO item : items) {
+            item.setApiResponseVO(service);
+        }
+
+        super.setResource(new FileSystemResource("src/main/resources/product1.txt"));
+        super.open(new ExecutionContext());
+        super.setLineAggregator(new DelimitedLineAggregator<>());
+        super.setAppendAllowed(true);
+        super.write(items);
+
+
     }
+
+
 }
