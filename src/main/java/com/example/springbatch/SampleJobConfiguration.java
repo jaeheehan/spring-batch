@@ -54,13 +54,9 @@ public class SampleJobConfiguration {
 
     @Bean
     public ItemProcessor<Customer, Customer> customItemProcessor() throws InterruptedException {
-        return new ItemProcessor<Customer, Customer>() {
-            @Override
-            public Customer process(final Customer item) throws Exception {
-
-                Thread.sleep(30);
-                return new Customer(item.getId(), item.getFirstName().toUpperCase(), item.getLastName().toUpperCase(), item.getBirthdate());
-            }
+        return item -> {
+            Thread.sleep(30);
+            return new Customer(item.getId(), item.getFirstName().toUpperCase(), item.getLastName().toUpperCase(), item.getBirthdate());
         };
     }
 
