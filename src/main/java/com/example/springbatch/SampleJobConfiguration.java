@@ -1,19 +1,19 @@
 package com.example.springbatch;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.batch.core.*;
+import org.springframework.batch.core.Job;
+import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.integration.async.AsyncItemProcessor;
-import org.springframework.batch.integration.async.AsyncItemWriter;
-import org.springframework.batch.item.*;
-import org.springframework.batch.item.adapter.ItemWriterAdapter;
+import org.springframework.batch.core.partition.support.Partitioner;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
 import org.springframework.batch.item.database.support.MySqlPagingQueryProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
@@ -21,7 +21,6 @@ import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Future;
 
 @Configuration
 @RequiredArgsConstructor
@@ -36,63 +35,50 @@ public class SampleJobConfiguration {
     public Job job() throws Exception {
         return jobBuilderFactory.get("batchJob")
                 .incrementer(new RunIdIncrementer())
-                .start(step1())
-                //.start(asyncStep1())
-                .listener(new StopWatchJobListener())
+                .start(masterStep())
+                //.listener(new StopWatchJobListener())
                 .build();
     }
 
     @Bean
-    public Step step1() throws Exception {
-        return stepBuilderFactory.get("step1")
+    public Step masterStep() {
+        return stepBuilderFactory.get("masterStep")
+                .partitioner(slaveStep().getName(), partitioner())
+                .step(slaveStep())
+                .gridSize(4)
+                .taskExecutor(new SimpleAsyncTaskExecutor())
+                .build();
+    }
+
+    @Bean
+    public Step slaveStep() {
+        return stepBuilderFactory.get("slaveStep")
                 .<Customer, Customer>chunk(100)
-                .reader(pagingItemReader())
-                .processor(customItemProcessor())
+                .reader(pagingItemReader(null, null))
                 .writer(customItemWriter())
                 .build();
     }
 
     @Bean
-    public ItemProcessor<Customer, Customer> customItemProcessor() throws InterruptedException {
-        return item -> {
-            Thread.sleep(30);
-            return new Customer(item.getId(), item.getFirstName().toUpperCase(), item.getLastName().toUpperCase(), item.getBirthdate());
-        };
-    }
+    public Partitioner partitioner() {
+        ColumnRangePartitioner columnRangePartitioner = new ColumnRangePartitioner();
 
-    @Bean
-    public Step asyncStep1() throws Exception{
-        return stepBuilderFactory.get("asyncStep1")
-                .<Customer, Future<Customer>>chunk(100)
-                .reader(pagingItemReader())
-                .processor(asyncItemProcessor())
-                .writer(asyncItemWriter())
-                .build();
+        columnRangePartitioner.setColumn("id");
+        columnRangePartitioner.setDataSource(dataSource);
+        columnRangePartitioner.setTable("customer");
+
+        return columnRangePartitioner;
     }
 
 
-    @Bean
-    public AsyncItemProcessor<Customer, Customer> asyncItemProcessor() throws Exception{
-
-        AsyncItemProcessor<Customer, Customer> asyncItemProcessor = new AsyncItemProcessor<>();
-        asyncItemProcessor.setDelegate(customItemProcessor());
-        asyncItemProcessor.setTaskExecutor(new SimpleAsyncTaskExecutor());
-
-        return asyncItemProcessor;
-    }
 
     @Bean
-    public AsyncItemWriter<Customer> asyncItemWriter() throws Exception{
-
-        AsyncItemWriter<Customer> asyncItemWriter = new AsyncItemWriter<>();
-        asyncItemWriter.setDelegate(customItemWriter());
-
-
-        return asyncItemWriter;
-    }
-
-    @Bean
-    public JdbcPagingItemReader<Customer> pagingItemReader() {
+    @StepScope
+    public JdbcPagingItemReader<Customer> pagingItemReader(
+            @Value("#{stepExecutionContext[minValue]}") Long minValue,
+            @Value("#{stepExecutionContext[maxValue]}") Long maxValue
+    ) {
+        System.out.println("reading " + minValue + " to " + maxValue);
 
         JdbcPagingItemReader<Customer> reader = new JdbcPagingItemReader<>();
 
@@ -104,6 +90,7 @@ public class SampleJobConfiguration {
         MySqlPagingQueryProvider queryProvider = new MySqlPagingQueryProvider();
         queryProvider.setSelectClause("id, firstName, lastName, birthdate");
         queryProvider.setFromClause("from customer");
+        queryProvider.setWhereClause("where id >= " + minValue + " and id <= " + maxValue);
 
         Map<String, Order> sortKeys = new HashMap<>(1);
         sortKeys.put("id", Order.ASCENDING);
@@ -118,6 +105,7 @@ public class SampleJobConfiguration {
 
 
     @Bean
+    @StepScope
     public JdbcBatchItemWriter<Customer> customItemWriter() {
 
         JdbcBatchItemWriter<Customer> itemWriter = new JdbcBatchItemWriter<>();
