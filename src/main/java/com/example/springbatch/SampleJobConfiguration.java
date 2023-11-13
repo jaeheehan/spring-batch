@@ -41,74 +41,51 @@ public class SampleJobConfiguration {
         return jobBuilderFactory.get("batchJob")
                 .incrementer(new RunIdIncrementer())
                 .start(step1())
-                //.listener(new StopWatchJobListener())
                 .build();
     }
 
     @Bean
     public Step step1() throws Exception {
         return stepBuilderFactory.get("step1")
-                .<Customer, Customer>chunk(60)
+                .<Customer, Customer>chunk(100)
                 .reader(customItemReader())
-                .listener(new ItemReadListener<Customer>() {
-                    @Override
-                    public void beforeRead() {
-
-                    }
-
-                    @Override
-                    public void afterRead(final Customer item) {
-
-                    }
-
-                    @Override
-                    public void onReadError(final Exception ex) {
-
-                    }
-                })
                 .writer(customItemWriter())
-                .taskExecutor(taskExecutor())
                 .build();
     }
 
-
     @Bean
-    @StepScope
-    public SynchronizedItemStreamReader<Customer> customItemReader(){
-        JdbcCursorItemReader<Customer> customItemReader = new JdbcCursorItemReaderBuilder<Customer>()
-                .fetchSize(60)
-                .dataSource(dataSource)
-                .rowMapper(new BeanPropertyRowMapper<>(Customer.class))
-                .sql("select id, firstName, lastName, birthdate from customer")
-                .name("customItemReader")
-                .build();
+    public JdbcPagingItemReader<Customer> customItemReader() {
+        JdbcPagingItemReader<Customer> reader = new JdbcPagingItemReader<>();
 
-        return new SynchronizedItemStreamReaderBuilder<Customer>().delegate(customItemReader).build();
+        reader.setDataSource(this.dataSource);
+        reader.setPageSize(100);
+        reader.setRowMapper(new CustomerRowMapper());
+
+        MySqlPagingQueryProvider queryProvider = new MySqlPagingQueryProvider();
+        queryProvider.setSelectClause("id, firstName, lastName, birthdate");
+        queryProvider.setFromClause("from customer");
+
+        Map<String, Order> sortKeys = new HashMap<>(1);
+
+        sortKeys.put("id", Order.ASCENDING);
+
+        queryProvider.setSortKeys(sortKeys);
+
+        reader.setQueryProvider(queryProvider);
+
+        return reader;
     }
 
-
-
     @Bean
-    @StepScope
-    public JdbcBatchItemWriter<Customer> customItemWriter() {
-
+    public JdbcBatchItemWriter customItemWriter() {
         JdbcBatchItemWriter<Customer> itemWriter = new JdbcBatchItemWriter<>();
 
-        itemWriter.setDataSource(dataSource);
-        itemWriter.setSql("INSERT INTO customer2 VALUES (:id, :firstName, :lastName, :birthdate)");
-        itemWriter.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>());
+        itemWriter.setDataSource(this.dataSource);
+        itemWriter.setSql("insert into customer2 values (:id, :firstName, :lastName, :birthdate)");
+        itemWriter.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider());
         itemWriter.afterPropertiesSet();
 
         return itemWriter;
-    }
-
-    @Bean
-    public TaskExecutor taskExecutor(){
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(4);
-        executor.setThreadNamePrefix("async-thread-");
-        return executor;
     }
 
 }
