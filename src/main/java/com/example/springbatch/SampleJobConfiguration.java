@@ -37,7 +37,6 @@ public class SampleJobConfiguration {
         return jobBuilderFactory.get("batchJob")
                 .incrementer(new RunIdIncrementer())
                 .start(step1())
-                //.start(asyncStep1())
                 .listener(new StopWatchJobListener())
                 .build();
     }
@@ -47,49 +46,10 @@ public class SampleJobConfiguration {
         return stepBuilderFactory.get("step1")
                 .<Customer, Customer>chunk(100)
                 .reader(pagingItemReader())
-                .processor(customItemProcessor())
                 .writer(customItemWriter())
                 .build();
     }
 
-    @Bean
-    public ItemProcessor<Customer, Customer> customItemProcessor() throws InterruptedException {
-        return item -> {
-            Thread.sleep(30);
-            return new Customer(item.getId(), item.getFirstName().toUpperCase(), item.getLastName().toUpperCase(), item.getBirthdate());
-        };
-    }
-
-    @Bean
-    public Step asyncStep1() throws Exception{
-        return stepBuilderFactory.get("asyncStep1")
-                .<Customer, Future<Customer>>chunk(100)
-                .reader(pagingItemReader())
-                .processor(asyncItemProcessor())
-                .writer(asyncItemWriter())
-                .build();
-    }
-
-
-    @Bean
-    public AsyncItemProcessor<Customer, Customer> asyncItemProcessor() throws Exception{
-
-        AsyncItemProcessor<Customer, Customer> asyncItemProcessor = new AsyncItemProcessor<>();
-        asyncItemProcessor.setDelegate(customItemProcessor());
-        asyncItemProcessor.setTaskExecutor(new SimpleAsyncTaskExecutor());
-
-        return asyncItemProcessor;
-    }
-
-    @Bean
-    public AsyncItemWriter<Customer> asyncItemWriter() throws Exception{
-
-        AsyncItemWriter<Customer> asyncItemWriter = new AsyncItemWriter<>();
-        asyncItemWriter.setDelegate(customItemWriter());
-
-
-        return asyncItemWriter;
-    }
 
     @Bean
     public JdbcPagingItemReader<Customer> pagingItemReader() {
@@ -97,7 +57,7 @@ public class SampleJobConfiguration {
         JdbcPagingItemReader<Customer> reader = new JdbcPagingItemReader<>();
 
         reader.setDataSource(dataSource);
-        reader.setFetchSize(300);
+        reader.setFetchSize(100);
         reader.setRowMapper(new CustomerRowMapper());
 
 
