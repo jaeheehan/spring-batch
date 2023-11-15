@@ -10,6 +10,7 @@ import org.springframework.batch.core.step.skip.AlwaysSkipItemSkipPolicy;
 import org.springframework.batch.core.step.skip.LimitCheckingItemSkipPolicy;
 import org.springframework.batch.core.step.skip.SkipPolicy;
 import org.springframework.batch.item.*;
+import org.springframework.batch.item.support.ListItemReader;
 import org.springframework.batch.repeat.CompletionPolicy;
 import org.springframework.batch.repeat.RepeatCallback;
 import org.springframework.batch.repeat.RepeatContext;
@@ -23,6 +24,7 @@ import org.springframework.batch.repeat.support.RepeatTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,49 +48,27 @@ public class SampleJobConfiguration {
     public Step step1() throws Exception {
         return stepBuilderFactory.get("step1")
                 .<String, String>chunk(5)
-                .reader(new ItemReader<String>() {
-                    int i = 0;
-                    @Override
-                    public String read() throws SkippableException {
-                        i++;
-                        if(i == 3) {
-                            throw new SkippableException("skip");
-                        }
-                        System.out.println("ItemReader : " + i);
-                        return i > 20 ? null : String.valueOf(i);
-                    }
-                })
+                .reader(reader())
                 .processor(processor())
-                .writer(writer())
+                .writer(items -> items.forEach(item -> System.out.println(">> " + item)))
                 .faultTolerant()
-                //.skipPolicy(limitCheckingItemSkipPolicy())
-                //.skipPolicy(new AlwaysSkipItemSkipPolicy())
-                .noSkip(NoSkipException.class)
-                .skipLimit(3)
+                .retry(RetryableException.class)
+                .retryLimit(2)
                 .build();
     }
 
     @Bean
-    public SkipPolicy limitCheckingItemSkipPolicy(){
-
-        Map<Class<? extends Throwable>, Boolean> exceptionClass = new HashMap<>();
-        exceptionClass.put(SkippableException.class, true);
-
-        LimitCheckingItemSkipPolicy limitCheckingItemSkipPolicy = new LimitCheckingItemSkipPolicy(3, exceptionClass);
-        return limitCheckingItemSkipPolicy;
+    public ItemProcessor<String, String> processor() {
+        return new RetryItemProcessor();
     }
 
     @Bean
-    public SkipItemProcessor processor() {
-        SkipItemProcessor processor = new SkipItemProcessor();
-        return processor;
+    public ListItemReader<String> reader() {
+        ArrayList<String> items = new ArrayList<>();
+        for(int i = 0; i < 100; i++) {
+            items.add(String.valueOf(i));
+        }
+        return new ListItemReader<>(items);
     }
-
-    @Bean
-    public SkipItemWriter writer() {
-        SkipItemWriter writer = new SkipItemWriter();
-        return writer;
-    }
-
 
 }
