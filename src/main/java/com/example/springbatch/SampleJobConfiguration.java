@@ -6,17 +6,19 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
-import org.springframework.batch.item.database.JdbcBatchItemWriter;
-import org.springframework.batch.item.database.JdbcPagingItemReader;
-import org.springframework.batch.item.database.Order;
-import org.springframework.batch.item.database.support.MySqlPagingQueryProvider;
+import org.springframework.batch.item.*;
+import org.springframework.batch.repeat.CompletionPolicy;
+import org.springframework.batch.repeat.RepeatCallback;
+import org.springframework.batch.repeat.RepeatContext;
+import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.batch.repeat.exception.ExceptionHandler;
+import org.springframework.batch.repeat.exception.SimpleLimitExceptionHandler;
+import org.springframework.batch.repeat.policy.CompositeCompletionPolicy;
+import org.springframework.batch.repeat.policy.SimpleCompletionPolicy;
+import org.springframework.batch.repeat.policy.TimeoutTerminationPolicy;
+import org.springframework.batch.repeat.support.RepeatTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import javax.sql.DataSource;
-import java.util.HashMap;
-import java.util.Map;
 
 @Configuration
 @RequiredArgsConstructor
@@ -25,7 +27,6 @@ public class SampleJobConfiguration {
 
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
-    private final DataSource dataSource;
 
     @Bean
     public Job job() throws Exception {
@@ -38,45 +39,50 @@ public class SampleJobConfiguration {
     @Bean
     public Step step1() throws Exception {
         return stepBuilderFactory.get("step1")
-                .<Customer, Customer>chunk(100)
-                .reader(customItemReader())
-                .writer(customItemWriter())
+                .<String, String>chunk(5)
+                .reader(new ItemReader<String>() {
+                    int i = 0;
+                    @Override
+                    public String read() throws Exception, UnexpectedInputException, ParseException, NonTransientResourceException {
+                        i++;
+                        return i > 3 ? null : "item" + i;
+                    }
+                })
+                .processor(new ItemProcessor<String, String>() {
+                    RepeatTemplate repeatTemplate = new RepeatTemplate();
+                    @Override
+                    public String process(final String item) throws Exception {
+                        /*repeatTemplate.setCompletionPolicy(new SimpleCompletionPolicy(3));
+                        repeatTemplate.setCompletionPolicy(new TimeoutTerminationPolicy(3000));
+
+                        CompositeCompletionPolicy compositeCompletionPolicy = new CompositeCompletionPolicy();
+                        CompletionPolicy[] completionPolicies = {new SimpleCompletionPolicy(3), new TimeoutTerminationPolicy(3000)};
+
+                        compositeCompletionPolicy.setPolicies(completionPolicies);
+                        repeatTemplate.setCompletionPolicy(compositeCompletionPolicy);*/
+
+                        repeatTemplate.setExceptionHandler(simpleLimtExceptionHandler());
+
+                        repeatTemplate.iterate(new RepeatCallback() {
+                            @Override
+                            public RepeatStatus doInIteration(final RepeatContext context) throws Exception {
+                                System.out.println("repeatTemplate is testing");
+                                throw new RuntimeException("Exception is occurred");
+                                //return RepeatStatus.CONTINUABLE;
+                            }
+                        });
+                        return item;
+                    }
+                })
+                .writer(items -> System.out.println(items))
                 .build();
     }
 
-    @Bean
-    public JdbcPagingItemReader<Customer> customItemReader() {
-        JdbcPagingItemReader<Customer> reader = new JdbcPagingItemReader<>();
-
-        reader.setDataSource(this.dataSource);
-        reader.setPageSize(100);
-        reader.setRowMapper(new CustomerRowMapper());
-
-        MySqlPagingQueryProvider queryProvider = new MySqlPagingQueryProvider();
-        queryProvider.setSelectClause("id, firstName, lastName, birthdate");
-        queryProvider.setFromClause("from customer");
-
-        Map<String, Order> sortKeys = new HashMap<>(1);
-
-        sortKeys.put("id", Order.ASCENDING);
-
-        queryProvider.setSortKeys(sortKeys);
-
-        reader.setQueryProvider(queryProvider);
-
-        return reader;
-    }
 
     @Bean
-    public JdbcBatchItemWriter customItemWriter() {
-        JdbcBatchItemWriter<Customer> itemWriter = new JdbcBatchItemWriter<>();
-
-        itemWriter.setDataSource(this.dataSource);
-        itemWriter.setSql("insert into customer2 values (:id, :firstName, :lastName, :birthdate)");
-        itemWriter.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider());
-        itemWriter.afterPropertiesSet();
-
-        return itemWriter;
+    public ExceptionHandler simpleLimtExceptionHandler() {
+        return new SimpleLimitExceptionHandler(3);
     }
+
 
 }
