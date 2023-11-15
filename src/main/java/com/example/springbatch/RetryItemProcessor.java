@@ -8,9 +8,11 @@ public class RetryItemProcessor implements ItemProcessor<String, String> {
     @Override
     public String process(final String item) throws Exception {
 
-        cnt++;
-        throw new RetryableException();
+        if(item.equals("2") || item.equals("3")){
+            cnt++;
+            throw new RetryableException();
+        }
 
-        //return null;
+        return item;
     }
 }

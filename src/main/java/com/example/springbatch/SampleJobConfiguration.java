@@ -23,6 +23,8 @@ import org.springframework.batch.repeat.policy.TimeoutTerminationPolicy;
 import org.springframework.batch.repeat.support.RepeatTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.RetryPolicy;
+import org.springframework.retry.policy.SimpleRetryPolicy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,8 +54,11 @@ public class SampleJobConfiguration {
                 .processor(processor())
                 .writer(items -> items.forEach(item -> System.out.println(">> " + item)))
                 .faultTolerant()
-                .retry(RetryableException.class)
-                .retryLimit(2)
+                .skip(RetryableException.class)
+                .skipLimit(2)
+                //.retry(RetryableException.class)
+                //.retryLimit(2)
+                .retryPolicy(retryPolicy())
                 .build();
     }
 
@@ -65,10 +70,19 @@ public class SampleJobConfiguration {
     @Bean
     public ListItemReader<String> reader() {
         ArrayList<String> items = new ArrayList<>();
-        for(int i = 0; i < 100; i++) {
+        for(int i = 0; i < 30; i++) {
             items.add(String.valueOf(i));
         }
         return new ListItemReader<>(items);
+    }
+
+    @Bean
+    public RetryPolicy retryPolicy(){
+        Map<Class<? extends Throwable>, Boolean> map = new HashMap<>();
+        map.put(RetryableException.class, true);
+
+        SimpleRetryPolicy simpleRetryPolicy = new SimpleRetryPolicy(3, map);
+        return simpleRetryPolicy;
     }
 
 }
