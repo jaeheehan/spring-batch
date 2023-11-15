@@ -45,36 +45,27 @@ public class SampleJobConfiguration {
                     @Override
                     public String read() throws Exception, UnexpectedInputException, ParseException, NonTransientResourceException {
                         i++;
+                        System.out.println("read :" + i);
+                        if ( i == 1 ) {
+                            throw new IllegalArgumentException("this exception is skipped");
+                        }
+
                         return i > 3 ? null : "item" + i;
                     }
                 })
                 .processor(new ItemProcessor<String, String>() {
-                    RepeatTemplate repeatTemplate = new RepeatTemplate();
                     @Override
-                    public String process(final String item) throws Exception {
-                        /*repeatTemplate.setCompletionPolicy(new SimpleCompletionPolicy(3));
-                        repeatTemplate.setCompletionPolicy(new TimeoutTerminationPolicy(3000));
-
-                        CompositeCompletionPolicy compositeCompletionPolicy = new CompositeCompletionPolicy();
-                        CompletionPolicy[] completionPolicies = {new SimpleCompletionPolicy(3), new TimeoutTerminationPolicy(3000)};
-
-                        compositeCompletionPolicy.setPolicies(completionPolicies);
-                        repeatTemplate.setCompletionPolicy(compositeCompletionPolicy);*/
-
-                        repeatTemplate.setExceptionHandler(simpleLimtExceptionHandler());
-
-                        repeatTemplate.iterate(new RepeatCallback() {
-                            @Override
-                            public RepeatStatus doInIteration(final RepeatContext context) throws Exception {
-                                System.out.println("repeatTemplate is testing");
-                                throw new RuntimeException("Exception is occurred");
-                                //return RepeatStatus.CONTINUABLE;
-                            }
-                        });
-                        return item;
+                    public String process(String item) throws Exception {
+                        System.out.println("process : " + item);
+                        throw new IllegalStateException("this exception is retried");
                     }
                 })
-                .writer(items -> System.out.println(items))
+                .writer(System.out::println)
+                .faultTolerant()
+                .skip(IllegalArgumentException.class)
+                .skipLimit(2)
+                .retry(IllegalStateException.class)
+                .retryLimit(2)
                 .build();
     }
 
