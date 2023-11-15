@@ -1,5 +1,6 @@
 package com.example.springbatch;
 
+import com.example.springbatch.template.SampleJobConfiguration2;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -16,7 +17,7 @@ import java.util.Date;
 
 @RunWith(SpringRunner.class)
 @SpringBatchTest
-@SpringBootTest(classes = {SampleJobConfiguration.class, TestBatchConfig.class})
+@SpringBootTest(classes = {SampleJobConfiguration2.class, TestBatchConfig.class})
 public class SimpleJobTest {
 
     @Autowired
