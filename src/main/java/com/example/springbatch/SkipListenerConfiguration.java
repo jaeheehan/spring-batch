@@ -7,28 +7,23 @@ import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.core.scope.context.ChunkContext;
-import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.support.ListItemReader;
-import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.sql.DataSource;
 import java.util.Arrays;
 import java.util.List;
 
 @RequiredArgsConstructor
 @Configuration
 @Slf4j
-public class ChunkConfiguration {
+public class SkipListenerConfiguration {
 
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
-    private final CustomChunkListener customChunkListener;
 
 
     @Bean
@@ -43,19 +38,31 @@ public class ChunkConfiguration {
     public Step step1() throws Exception {
         return stepBuilderFactory.get("step1")
                 .<Integer, String>chunk(10)
-                .listener(customChunkListener)
-                .listener(new CustomItemReadListener())
-                .listener(new CustomItemProcessListener())
-                .listener(new CustomItemWriterListener())
                 .reader(listItemReader())
-                .processor((ItemProcessor) item -> {
-                    //throw new RuntimeException("failed");
-                   return "item" + item;
+                .processor(new ItemProcessor<Integer, String>() {
+                    @Override
+                    public String process(final Integer item) throws Exception {
+                        if(item == 4){
+                            throw new CustomSkipException("process skipped ");
+                        }
+                        return "item" + item;
+                    }
                 })
-                .writer((ItemWriter<String>) items -> {
-                    //throw new RuntimeException("failed");
-                    System.out.println("items = " + items);
+                .writer(new ItemWriter<String>() {
+                    @Override
+                    public void write(final List<? extends String> items) throws Exception {
+                        for (String item : items) {
+                            if(item.equals("item5")){
+                                throw new CustomSkipException("write skipped ");
+                            }
+                            log.info(">> current item = {}", item);
+                        }
+                    }
                 })
+                .faultTolerant()
+                .skip(CustomSkipException.class)
+                .skipLimit(3)
+                .listener(new CustomSkipListener())
                 .build();
     }
 
