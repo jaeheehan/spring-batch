@@ -45,6 +45,7 @@ public class SkipListenerConfiguration {
                         if(item == 4){
                             throw new CustomSkipException("process skipped ");
                         }
+                        System.out.println("process : " + item);
                         return "item" + item;
                     }
                 })
@@ -55,7 +56,7 @@ public class SkipListenerConfiguration {
                             if(item.equals("item5")){
                                 throw new CustomSkipException("write skipped ");
                             }
-                            log.info(">> current item = {}", item);
+                            System.out.println("write : " + item);
                         }
                     }
                 })
@@ -69,6 +70,6 @@ public class SkipListenerConfiguration {
     @Bean
     public ItemReader<Integer> listItemReader() {
         List<Integer> list = Arrays.asList(1,2,3,4,5,6,7,8,9,10);
-        return new ListItemReader<>(list);
+        return new LinkedListItemReader<>(list);
     }
 }
